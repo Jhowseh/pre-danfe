@@ -1,0 +1,50 @@
+PRÉ-DANFE SysPDV
+================
+
+Gera um PDF no layout do DANFE, com a marca "SEM VALOR FISCAL - PRÉ-VISUALIZAÇÃO",
+de NF-e (modelo 55) digitadas no SysPDV e ainda NÃO transmitidas.
+O programa só LÊ o banco do SysPDV; nunca grava nada nele.
+
+Manual completo, com imagens: Manual-PreDANFE.pdf (nesta pasta).
+
+Há dois programas. Use um ou os dois.
+
+1) PreDANFE.exe  (V1 - sob demanda)
+   Abra, digite o número da NF-e e clique em "Gerar Pré-DANFE" (ou tecle Enter).
+   O PDF abre sozinho. A janela também lista as NF-e ainda não transmitidas:
+   duplo clique em uma delas gera o PDF dela.
+
+2) PreDANFE-Automatico.exe  (V2 - automático)
+   Fica rodando em segundo plano, com um ícone perto do relógio.
+   A cada 10 segundos procura NF-e não transmitidas e gera o PDF de cada nota
+   nova ou alterada, com o nome PreDANFE_<número>.pdf (se a nota for alterada,
+   o PDF é refeito). Aparece um aviso no canto da tela quando um PDF é gerado.
+   Clique com o botão direito no ícone para: abrir a pasta dos PDFs, verificar
+   agora, configurações, iniciar com o Windows, sair.
+
+INSTALAÇÃO EM CADA COMPUTADOR
+   1. Copie esta pasta inteira para C:\PreDanfe (ou outra pasta onde o
+      usuário tenha permissão de gravar).
+   2. Abra um dos programas. Na primeira vez aparece a tela de configuração:
+      - Servidor, porta e arquivo do banco já vêm preenchidos com o que o
+        SysPDV daquele computador usa. Confira.
+      - Digite a senha do banco e clique em "Testar conexão" e depois "Salvar".
+      A configuração fica no arquivo config.ini, ao lado dos programas.
+      Dica: depois de configurar um computador, copie o config.ini junto
+      para os outros que usam o mesmo servidor.
+   3. No automático, responda "Sim" para iniciar junto com o Windows
+      (dá para mudar depois pelo menu do ícone).
+
+ONDE FICAM OS PDFs
+   Na pasta "pdf", ao lado dos programas (dá para mudar em Configurações).
+
+O QUE O PRÉ-DANFE CALCULA
+   PIS/COFINS, valor aproximado dos tributos (IBPT) e o texto do IBPT nas
+   informações complementares são calculados como o SysPDV faz ao transmitir.
+   Conferido com 178 notas reais: 9 em cada 10 saem idênticas ao DANFE final.
+   Única estimativa: tributos aproximados de produto cujo NCM nunca saiu numa
+   nota transmitida (o PDF avisa "TRIBUTOS APROXIMADOS ESTIMADOS PARA NCM").
+
+PROBLEMAS
+   Registro de erros: %LOCALAPPDATA%\PreDANFE\ (arquivos .log).
+   Se o antivírus bloquear o programa, libere a pasta C:\PreDanfe.

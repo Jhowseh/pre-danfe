@@ -1,0 +1,28 @@
+# Configuração local: tem a senha do banco. Use predanfe/config.exemplo.ini como modelo.
+config.ini
+
+# Saída do build (python predanfe/build.py)
+build/
+Distribuir/
+*.spec
+*.exe
+
+# PDFs/XMLs gerados (contêm dados reais de clientes)
+predanfe/pdf/
+pdf/
+
+# Imagens temporárias do manual
+predanfe/manual/img/gerado/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.log
+
+# Editor / sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
