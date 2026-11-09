@@ -40,6 +40,7 @@ gerado por `predanfe/manual/gerar_manual.py` (os dois vão junto em cada release
 ```
 PreDanfe/
 ├── PreDANFE.bat            atalho da linha de comando
+├── LICENSE, NOTICE         licença Apache 2.0 e créditos
 ├── requirements.txt        dependências Python
 ├── docs/
 │   ├── LEIA-ME.txt         instruções para o usuário final
@@ -94,14 +95,15 @@ Os PDFs ficam em `predanfe/pdf` (configurável em `[saida] pasta_pdf`).
 python predanfe/build.py
 ```
 
-Gera `Distribuir/PreDANFE.exe`, `Distribuir/PreDANFE-Automatico.exe` e copia o `LEIA-ME.txt`.
+Gera `Distribuir/PreDANFE.exe`, `Distribuir/PreDANFE-Automatico.exe` e copia o `LEIA-ME.txt`,
+o `LICENSE.txt` e o `NOTICE.txt`.
 Para refazer o manual: `python predanfe/manual/capturas.py` e depois
 `python predanfe/manual/gerar_manual.py` (grava `Distribuir/Manual-PreDANFE.pdf`).
 
 A pasta `Distribuir/` não vai para o Git (pode ter `config.ini` com senha e PDFs de clientes).
 Para publicar uma versão, crie uma release em GitHub → Releases com a tag `v<versão>`
 (a de `predanfe/versao.py`) e anexe só `PreDANFE.exe`, `PreDANFE-Automatico.exe`,
-`Manual-PreDANFE.pdf` e `LEIA-ME.txt` — **nunca o `config.ini` nem a pasta `pdf`**.
+`Manual-PreDANFE.pdf`, `LEIA-ME.txt`, `LICENSE.txt` e `NOTICE.txt` — **nunca o `config.ini` nem a pasta `pdf`**.
 
 ## Conferência
 
@@ -145,3 +147,14 @@ Notas transmitidas ficam com `NFSSTATNFE = 'AU'`; canceladas, `NFSACAONFE = 'CA'
 
 PBtec – Soluções em Automação · (83) 3224-3080
 Desenvolvimento: Erick Henrique e José Henrique.
+
+## Licença
+
+Distribuído sob a [Apache License 2.0](LICENSE). Você pode usar, modificar e
+redistribuir o Pré-DANFE, inclusive em projetos comerciais, desde que:
+
+- mantenha o arquivo [`NOTICE`](NOTICE) com os créditos ao distribuir o programa
+  ou uma versão modificada dele;
+- indique nos arquivos alterados que eles foram modificados.
+
+O nome e o logo da PBtec não estão incluídos na licença.

@@ -41,6 +41,9 @@ def main():
     compilar("PreDANFE", "app_v1.py")
     compilar("PreDANFE-Automatico", "app_v2.py", ["--hidden-import=pystray._win32"])
     shutil.copy(RAIZ / "docs" / "LEIA-ME.txt", DESTINO / "LEIA-ME.txt")
+    # a licença Apache 2.0 pede que LICENSE e NOTICE acompanhem os .exe
+    shutil.copy(RAIZ / "LICENSE", DESTINO / "LICENSE.txt")
+    shutil.copy(RAIZ / "NOTICE", DESTINO / "NOTICE.txt")
     print(f"\nPronto: {DESTINO}")
 
 
