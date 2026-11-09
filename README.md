@@ -13,6 +13,17 @@ Serve para conferir a nota (itens, impostos, cliente) antes de transmitir.
 
 O programa só **lê** o banco Firebird do SysPDV — nunca grava nada nele.
 
+## Download
+
+Baixe a versão mais recente em **[Releases](https://github.com/Jhowseh/pre-danfe/releases/latest)**:
+
+- `PreDANFE.exe` e/ou `PreDANFE-Automatico.exe` — os programas prontos (não precisa instalar Python);
+- `Manual-PreDANFE.pdf` — manual completo, com imagens;
+- `LEIA-ME.txt` — instruções rápidas.
+
+Coloque os arquivos numa mesma pasta (ex.: `C:\PreDanfe`) e abra um dos programas.
+Na primeira vez ele pede os dados do banco do SysPDV e cria o `config.ini` sozinho.
+
 ## Programas
 
 | Programa | O que faz |
@@ -21,8 +32,8 @@ O programa só **lê** o banco Firebird do SysPDV — nunca grava nada nele.
 | `PreDANFE-Automatico.exe` (V2) | Fica perto do relógio e gera sozinho o PDF de toda NF-e nova ou alterada ainda não transmitida (`PreDANFE_<número>.pdf`). |
 | `PreDANFE.bat` | Versão de linha de comando: lista as pendentes, você digita a linha e o PDF abre. |
 
-Instruções para o usuário final: [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt) (vai junto na pasta `Distribuir`)
-e o manual em PDF gerado por `predanfe/manual/gerar_manual.py`.
+Instruções para o usuário final: [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt) e o manual em PDF
+gerado por `predanfe/manual/gerar_manual.py` (os dois vão junto em cada release).
 
 ## Estrutura
 
@@ -86,6 +97,11 @@ python predanfe/build.py
 Gera `Distribuir/PreDANFE.exe`, `Distribuir/PreDANFE-Automatico.exe` e copia o `LEIA-ME.txt`.
 Para refazer o manual: `python predanfe/manual/capturas.py` e depois
 `python predanfe/manual/gerar_manual.py` (grava `Distribuir/Manual-PreDANFE.pdf`).
+
+A pasta `Distribuir/` não vai para o Git (pode ter `config.ini` com senha e PDFs de clientes).
+Para publicar uma versão, crie uma release em GitHub → Releases com a tag `v<versão>`
+(a de `predanfe/versao.py`) e anexe só `PreDANFE.exe`, `PreDANFE-Automatico.exe`,
+`Manual-PreDANFE.pdf` e `LEIA-ME.txt` — **nunca o `config.ini` nem a pasta `pdf`**.
 
 ## Conferência
 
