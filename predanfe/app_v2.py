@@ -1,12 +1,3 @@
-"""Pré-DANFE Automático (V2): roda em segundo plano, com ícone perto do relógio.
-
-A cada poucos segundos lê (só leitura) as NF-e ainda não transmitidas. Quando
-uma nota aparece ou muda, gera o pré-DANFE na pasta configurada, com o nome
-PreDANFE_<número>.pdf (sobrescrito a cada alteração da nota).
-
-Para não pegar uma nota no meio da gravação, só gera quando a nota fica igual
-em duas verificações seguidas.
-"""
 import hashlib
 import json
 import logging
@@ -23,259 +14,246 @@ from tkinter import messagebox
 import pystray
 from pystray._util import win32 as pystray_win32
 
-import tela_config
-import tela_sobre
-import tema
-import util_app
-from banco import CONGELADO, PASTA_LOG, ErroConfig, conexao_leitura, ler_config
-from gerador import listar_pendentes, montar, nome_arquivo, pasta_saida, pdf_predanfe, salvar
-from menu_bandeja import SEPARADOR, MenuBandeja, Opcao
+import about_window
+import app_utils
+import config_window
+import theme
+from database import FROZEN, LOG_DIR, ConfigError, read_config, read_only_connection
+from generator import build, file_name, list_pending, output_dir, predanfe_pdf, save
+from tray_menu import SEPARATOR, MenuItem, TrayMenu
 
-NOME = "PreDANFE-Automatico"
-CHAVE_RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
-ARQ_ESTADO = PASTA_LOG / "automatico_estado.json"
+NAME = "PreDANFE-Automatico"
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+STATE_FILE = LOG_DIR / "automatico_estado.json"
 
 log = logging.getLogger("predanfe.auto")
 
 
-# ---------------------------------------------------------- iniciar com o Windows
-
-def comando_inicializacao():
-    if CONGELADO:
+def startup_command():
+    if FROZEN:
         return f'"{sys.executable}"'
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     return f'"{pythonw}" "{Path(__file__).resolve()}"'
 
 
-def autostart_ativo():
+def autostart_enabled():
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN) as k:
-            winreg.QueryValueEx(k, NOME)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            winreg.QueryValueEx(key, NAME)
             return True
     except OSError:
         return False
 
 
-def definir_autostart(ligar):
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN, 0, winreg.KEY_SET_VALUE) as k:
-        if ligar:
-            winreg.SetValueEx(k, NOME, 0, winreg.REG_SZ, comando_inicializacao())
+def set_autostart(enabled):
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+        if enabled:
+            winreg.SetValueEx(key, NAME, 0, winreg.REG_SZ, startup_command())
         else:
             try:
-                winreg.DeleteValue(k, NOME)
+                winreg.DeleteValue(key, NAME)
             except OSError:
                 pass
 
 
-# ---------------------------------------------------------- vigia do banco
-
-class Vigia:
+class Watcher:
     def __init__(self):
-        self.parar = threading.Event()
-        self.agora = threading.Event()
+        self.stop = threading.Event()
+        self.now = threading.Event()
         self.status = "Iniciando..."
-        self.tipo_status = "neutro"  # cor da bolinha no menu: ok, erro ou neutro
-        self.notificar = lambda texto: None
-        self.ultimo_erro = None
-        self.anterior = {}  # NFSCTR -> hash visto na verificação anterior
-        self.estado = self._ler_estado()  # NFSCTR -> {"hash", "arquivo"} já gerados
+        self.status_kind = "neutral"
+        self.notify = lambda text: None
+        self.last_error = None
+        self.previous = {}
+        self.state = self._read_state()
 
     @staticmethod
-    def _ler_estado():
+    def _read_state():
         try:
-            return json.loads(ARQ_ESTADO.read_text(encoding="utf-8"))
+            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
 
-    def _gravar_estado(self):
+    def _write_state(self):
         try:
-            ARQ_ESTADO.parent.mkdir(parents=True, exist_ok=True)
-            ARQ_ESTADO.write_text(json.dumps(self.estado), encoding="utf-8")
+            STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            STATE_FILE.write_text(json.dumps(self.state), encoding="utf-8")
         except OSError:
             log.exception("Não gravou o estado")
 
-    def intervalo(self):
+    def interval(self):
         try:
-            return max(3, ler_config().getint("automatico", "intervalo_segundos", fallback=10))
-        except (ErroConfig, ValueError):
+            return max(3, read_config().getint("automatico", "intervalo_segundos", fallback=10))
+        except (ConfigError, ValueError):
             return 10
 
-    def rodar(self):
+    def run(self):
         log.info("Modo automático iniciado")
-        while not self.parar.is_set():
-            self.verificar()
-            self.agora.wait(self.intervalo())
-            self.agora.clear()
+        while not self.stop.is_set():
+            self.check()
+            self.now.wait(self.interval())
+            self.now.clear()
 
-    def _mudar_status(self, texto, tipo="ok"):
-        self.status = texto
-        self.tipo_status = tipo
+    def _set_status(self, text, kind="ok"):
+        self.status = text
+        self.status_kind = kind
 
-    def verificar(self):
+    def check(self):
         try:
-            cfg = ler_config()
-            pasta = pasta_saida(cfg)
-            gerados, vistos = [], {}
-            with conexao_leitura(cfg) as cur:
-                pendentes = listar_pendentes(cur)
-                for n in pendentes:
-                    ctr = n["NFSCTR"]
-                    xml, _chave, _avisos = montar(cur, ctr)
+            cfg = read_config()
+            folder = output_dir(cfg)
+            generated, seen = [], {}
+            with read_only_connection(cfg) as cur:
+                pending = list_pending(cur)
+                for inv in pending:
+                    ctr = inv["NFSCTR"]
+                    xml, _key, _warnings = build(cur, ctr)
                     h = hashlib.sha1(xml.encode("utf-8")).hexdigest()
-                    vistos[ctr] = h
-                    feito = self.estado.get(ctr, {})
-                    if feito.get("hash") == h and Path(feito.get("arquivo", "")).exists():
-                        continue  # já gerado e a nota não mudou
-                    if self.anterior.get(ctr) != h:
-                        continue  # nota nova ou mudando: espera a próxima verificação
-                    destino = salvar(pasta, nome_arquivo(n["NFSNUM"]), pdf_predanfe(xml))
-                    self.estado[ctr] = {"hash": h, "arquivo": str(destino)}
-                    gerados.append((int(n["NFSNUM"]), destino))
-            self.anterior = vistos
-            # esquece notas que deixaram de estar pendentes (transmitidas ou excluídas)
-            self.estado = {k: v for k, v in self.estado.items() if k in vistos}
-            self._gravar_estado()
+                    seen[ctr] = h
+                    done = self.state.get(ctr, {})
+                    if done.get("hash") == h and Path(done.get("arquivo", "")).exists():
+                        continue
+                    if self.previous.get(ctr) != h:
+                        continue
+                    target = save(folder, file_name(inv["NFSNUM"]), predanfe_pdf(xml))
+                    self.state[ctr] = {"hash": h, "arquivo": str(target)}
+                    generated.append((int(inv["NFSNUM"]), target))
+            self.previous = seen
+            self.state = {k: v for k, v in self.state.items() if k in seen}
+            self._write_state()
 
-            if self.ultimo_erro:
+            if self.last_error:
                 log.info("Conexão normalizada")
-                self.ultimo_erro = None
-            self._mudar_status(f"{len(pendentes)} NF-e pendente(s) – verificado às {datetime.now():%H:%M:%S}")
-            for num, destino in gerados:
-                log.info("Gerado %s", destino)
-                self.notificar(f"Pré-DANFE da NF-e {num} gerado.\n{destino.name}")
-        except (Exception, ErroConfig) as e:  # noqa: BLE001 - o vigia não pode parar
+                self.last_error = None
+            self._set_status(f"{len(pending)} NF-e pendente(s) – verificado às {datetime.now():%H:%M:%S}")
+            for number, target in generated:
+                log.info("Gerado %s", target)
+                self.notify(f"Pré-DANFE da NF-e {number} gerado.\n{target.name}")
+        except (Exception, ConfigError) as e:
             msg = str(e) or type(e).__name__
-            self._mudar_status(f"Erro: {msg[:90]}", "erro")
-            if msg != self.ultimo_erro:  # avisa uma vez por tipo de erro
+            self._set_status(f"Erro: {msg[:90]}", "error")
+            if msg != self.last_error:
                 log.exception("Falha na verificação")
-                self.notificar(f"Não foi possível ler o banco do SysPDV:\n{msg[:150]}")
-                self.ultimo_erro = msg
+                self.notify(f"Não foi possível ler o banco do SysPDV:\n{msg[:150]}")
+                self.last_error = msg
 
 
-# ---------------------------------------------------------- ícone perto do relógio
-
-class IconeBandeja(pystray.Icon):
-    """Dois cliques abrem a pasta; o botão direito abre o menu desenhado (menu_bandeja),
-    no lugar do menu de texto do Windows."""
-
+class TrayIcon(pystray.Icon):
     WM_LBUTTONDBLCLK = 0x0203
     WM_RBUTTONUP = 0x0205
 
-    def __init__(self, *args, ao_dois_cliques, ao_menu, **kwargs):
-        self.ao_dois_cliques = ao_dois_cliques
-        self.ao_menu = ao_menu
+    def __init__(self, *args, on_double_click, on_menu, **kwargs):
+        self.on_double_click = on_double_click
+        self.on_menu = on_menu
         super().__init__(*args, **kwargs)
 
     def _on_notify(self, wparam, lparam):
         if lparam == self.WM_LBUTTONDBLCLK:
-            self.ao_dois_cliques()
+            self.on_double_click()
         elif lparam == self.WM_RBUTTONUP:
-            # o Windows só deixa o menu pegar o foco se o programa estiver em primeiro plano
             pystray_win32.SetForegroundWindow(self._hwnd)
-            self.ao_menu()
+            self.on_menu()
 
-
-# ---------------------------------------------------------- programa
 
 def main():
-    tema.ativar_dpi()
-    util_app.configurar_log("automatico")
-    util_app.identificar_app("PreDANFE.Automatico")
+    theme.enable_dpi_awareness()
+    app_utils.setup_logging("automatico")
+    app_utils.set_app_id("PreDANFE.Automatico")
     root = tk.Tk()
     root.withdraw()
-    util_app.aplicar_icone(root)
-    util_app.registrar_erros_tk(root, log)
+    app_utils.apply_icon(root)
+    app_utils.log_tk_errors(root, log)
 
-    if not util_app.uma_instancia(NOME):
+    if not app_utils.single_instance(NAME):
         messagebox.showinfo("Pré-DANFE Automático",
                             "O Pré-DANFE Automático já está em execução (ícone perto do relógio).")
         return
 
     try:
-        ler_config()
-    except ErroConfig:
-        if not tela_config.abrir(root, esperar=True):
+        read_config()
+    except ConfigError:
+        if not config_window.show(root, wait=True):
             return
-        if not autostart_ativo() and messagebox.askyesno(
+        if not autostart_enabled() and messagebox.askyesno(
                 "Pré-DANFE Automático", "Iniciar o Pré-DANFE Automático junto com o Windows?"):
-            definir_autostart(True)
+            set_autostart(True)
 
-    vigia = Vigia()
-    fila = queue.Queue()
+    watcher = Watcher()
+    requests = queue.Queue()
 
-    def abrir_pasta():
+    def open_folder():
         try:
-            os.startfile(pasta_saida())
-        except BaseException as e:  # noqa: BLE001
-            vigia.notificar(f"Não abriu a pasta: {e}")
+            os.startfile(output_dir())
+        except BaseException as e:
+            watcher.notify(f"Não abriu a pasta: {e}")
 
-    def alternar_autostart():
+    def toggle_autostart():
         try:
-            definir_autostart(not autostart_ativo())
+            set_autostart(not autostart_enabled())
         except OSError as e:
-            vigia.notificar(f"Não alterou o início automático: {e}")
+            watcher.notify(f"Não alterou o início automático: {e}")
 
-    menu = MenuBandeja(root)
+    menu = TrayMenu(root)
 
-    def opcoes_menu():
+    def menu_items():
         return [
-            Opcao("pasta", "Abrir pasta dos Pré-DANFEs",
-                  "Mostra os PDFs gerados (o mesmo que dar dois cliques no ícone).", abrir_pasta),
-            Opcao("atualizar", "Verificar agora",
-                  f"Procura notas novas na hora, sem esperar os {vigia.intervalo()} segundos.", vigia.agora.set),
-            Opcao("ajustes", "Configurações...", "Muda servidor, senha ou pasta dos PDFs.",
-                  lambda: fila.put("config")),
-            Opcao("seta", "Iniciar com o Windows", "Liga ou desliga o início automático.",
-                  alternar_autostart, ligado=autostart_ativo),
-            Opcao("info", "Sobre...", "Versão do programa e contato da PBtec.", lambda: fila.put("sobre")),
-            SEPARADOR,
-            Opcao("documento", "Sair", "Fecha o programa. Os PDFs param de ser gerados até abrir de novo.",
-                  lambda: fila.put("sair")),
+            MenuItem("folder", "Abrir pasta dos Pré-DANFEs",
+                     "Mostra os PDFs gerados (o mesmo que dar dois cliques no ícone).", open_folder),
+            MenuItem("refresh", "Verificar agora",
+                     f"Procura notas novas na hora, sem esperar os {watcher.interval()} segundos.", watcher.now.set),
+            MenuItem("sliders", "Configurações...", "Muda servidor, senha ou pasta dos PDFs.",
+                     lambda: requests.put("config")),
+            MenuItem("arrow", "Iniciar com o Windows", "Liga ou desliga o início automático.",
+                     toggle_autostart, is_on=autostart_enabled),
+            MenuItem("info", "Sobre...", "Versão do programa e contato da PBtec.", lambda: requests.put("about")),
+            SEPARATOR,
+            MenuItem("document", "Sair", "Fecha o programa. Os PDFs param de ser gerados até abrir de novo.",
+                     lambda: requests.put("quit")),
         ]
 
-    icone = IconeBandeja(
-        NOME,
-        util_app.imagem_icone(64),
+    icon = TrayIcon(
+        NAME,
+        app_utils.icon_image(64),
         "Pré-DANFE Automático",
-        ao_dois_cliques=lambda: fila.put("pasta"),
-        ao_menu=lambda: fila.put("menu"),
+        on_double_click=lambda: requests.put("folder"),
+        on_menu=lambda: requests.put("menu"),
     )
 
-    def notificar(texto):
+    def notify(text):
         try:
-            icone.notify(texto, "Pré-DANFE")
-        except Exception:  # noqa: BLE001 - notificação é só aviso
+            icon.notify(text, "Pré-DANFE")
+        except Exception:
             log.exception("Falha ao notificar")
 
-    vigia.notificar = notificar
-    icone.run_detached()
-    threading.Thread(target=vigia.rodar, name="vigia", daemon=True).start()
+    watcher.notify = notify
+    icon.run_detached()
+    threading.Thread(target=watcher.run, name="watcher", daemon=True).start()
 
-    def processar_fila():
+    def process_requests():
         try:
             while True:
-                pedido = fila.get_nowait()
-                if pedido == "menu":
-                    menu.abrir(lambda: (vigia.status, vigia.tipo_status), opcoes_menu())
-                elif pedido == "pasta":
-                    abrir_pasta()
-                elif pedido == "config":
-                    tela_config.abrir(root, ao_salvar=vigia.agora.set)
-                elif pedido == "sobre":
-                    tela_sobre.abrir(root)
-                elif pedido == "sair":
+                request = requests.get_nowait()
+                if request == "menu":
+                    menu.show(lambda: (watcher.status, watcher.status_kind), menu_items())
+                elif request == "folder":
+                    open_folder()
+                elif request == "config":
+                    config_window.show(root, on_save=watcher.now.set)
+                elif request == "about":
+                    about_window.show(root)
+                elif request == "quit":
                     log.info("Encerrado pelo usuário")
-                    menu.fechar()
-                    vigia.parar.set()
-                    vigia.agora.set()
-                    icone.stop()
+                    menu.close()
+                    watcher.stop.set()
+                    watcher.now.set()
+                    icon.stop()
                     root.destroy()
                     return
         except queue.Empty:
             pass
-        root.after(50, processar_fila)  # curto para o menu abrir logo após o clique
+        root.after(50, process_requests)
 
-    root.after(50, processar_fila)
+    root.after(50, process_requests)
     root.mainloop()
 
 

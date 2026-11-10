@@ -1,50 +1,44 @@
-"""Compila os dois programas (.exe) com PyInstaller e monta a pasta C:\\PreDanfe\\Distribuir.
-
-  python build.py
-"""
 import shutil
 from pathlib import Path
 
 import PyInstaller.__main__
 
-from util_app import ARQ_ICONE, salvar_ico
+from app_utils import ICON_FILE, save_ico
 
-AQUI = Path(__file__).resolve().parent
-RAIZ = AQUI.parent
-TRABALHO = RAIZ / "build"
-DESTINO = RAIZ / "Distribuir"
-# o mesmo .ico vira o ícone do .exe e vai junto em recursos/ para as janelas usarem
-ICONE = AQUI / "recursos" / ARQ_ICONE
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+WORK_DIR = ROOT / "build"
+DIST_DIR = ROOT / "dist"
+ICON = HERE / "resources" / ICON_FILE
 
 
-def compilar(nome, script, extras=()):
+def compile_exe(name, script, extra=()):
     PyInstaller.__main__.run([
         "--noconfirm", "--clean", "--onefile", "--windowed",
-        f"--name={nome}",
-        f"--icon={ICONE}",
-        f"--add-data={AQUI / 'fbclient'};fbclient",
-        f"--add-data={AQUI / 'recursos'};recursos",
+        f"--name={name}",
+        f"--icon={ICON}",
+        f"--add-data={HERE / 'fbclient'};fbclient",
+        f"--add-data={HERE / 'resources'};resources",
         "--collect-data=brazilfiscalreport",
         "--collect-data=barcode",
-        f"--paths={AQUI}",
-        f"--workpath={TRABALHO / 'work'}",
-        f"--specpath={TRABALHO}",
-        f"--distpath={DESTINO}",
-        *extras,
-        str(AQUI / script),
+        f"--paths={HERE}",
+        f"--workpath={WORK_DIR / 'work'}",
+        f"--specpath={WORK_DIR}",
+        f"--distpath={DIST_DIR}",
+        *extra,
+        str(HERE / script),
     ])
 
 
 def main():
-    TRABALHO.mkdir(exist_ok=True)
-    salvar_ico(ICONE)
-    compilar("PreDANFE", "app_v1.py")
-    compilar("PreDANFE-Automatico", "app_v2.py", ["--hidden-import=pystray._win32"])
-    shutil.copy(RAIZ / "docs" / "LEIA-ME.txt", DESTINO / "LEIA-ME.txt")
-    # a licença Apache 2.0 pede que LICENSE e NOTICE acompanhem os .exe
-    shutil.copy(RAIZ / "LICENSE", DESTINO / "LICENSE.txt")
-    shutil.copy(RAIZ / "NOTICE", DESTINO / "NOTICE.txt")
-    print(f"\nPronto: {DESTINO}")
+    WORK_DIR.mkdir(exist_ok=True)
+    save_ico(ICON)
+    compile_exe("PreDANFE", "app_v1.py")
+    compile_exe("PreDANFE-Automatico", "app_v2.py", ["--hidden-import=pystray._win32"])
+    shutil.copy(ROOT / "docs" / "LEIA-ME.txt", DIST_DIR / "LEIA-ME.txt")
+    shutil.copy(ROOT / "LICENSE", DIST_DIR / "LICENSE.txt")
+    shutil.copy(ROOT / "NOTICE", DIST_DIR / "NOTICE.txt")
+    print(f"\nPronto: {DIST_DIR}")
 
 
 if __name__ == "__main__":
