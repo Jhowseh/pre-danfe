@@ -20,8 +20,8 @@ mudam a forma de pedir e mostrar o resultado.
 - Toda consulta roda numa transação **READ ONLY** do Firebird (`read_only_connection`): o próprio
   servidor recusa INSERT/UPDATE/DELETE. No fim, a transação é desfeita (rollback), nunca confirmada.
 - `APP_DIR` é a pasta do programa (do `.exe` quando compilado, do código-fonte fora dele). Lá ficam o
-  `config.ini` e a pasta de PDFs. `RESOURCES` é onde o PyInstaller extrai os arquivos embutidos
-  (`fbclient/`, `resources/`).
+  `config.ini` e a pasta de PDFs. `RESOURCES` é a pasta `_internal` do programa compilado, onde
+  ficam os arquivos embutidos (`fbclient/`, `resources/`).
 - Logs e estado do modo automático ficam em `%LOCALAPPDATA%\PreDANFE` (`LOG_DIR`).
 - `syspdv_defaults` lê do registro (`HKLM\SOFTWARE\WOW6432Node\Syspdv_server\UniConnection`) o
   servidor, a porta e o banco que o SysPDV da máquina usa, para preencher a configuração.
@@ -139,6 +139,11 @@ em cache por 10 minutos.
 - Cada tipo de erro de conexão é notificado uma vez só, até a conexão voltar.
 - "Iniciar com o Windows" grava o valor `PreDANFE-Automatico` em
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- `refresh_autostart`: ao abrir o `.exe`, se o início com o Windows está ligado mas aponta para outro
+  caminho (ex.: a antiga pasta `C:\PreDanfe`, antes do instalador), o valor é regravado com o caminho
+  atual. Só regrava quando o caminho muda e só no `.exe`, para rodar do código-fonte não desviar o
+  início com o Windows de uma instalação. O instalador não cria atalho de inicialização, porque o
+  próprio programa já pergunta e o menu do ícone liga e desliga essa opção.
 - O ícone da bandeja (`TrayIcon`, sobre o `pystray`): dois cliques abrem a pasta, e o botão direito
   abre o menu próprio. Antes de abrir o menu, o programa vem para o primeiro plano, porque sem isso o
   Windows não deixa o menu pegar o foco.
@@ -197,12 +202,50 @@ Windows" (o clique na chave não fecha o menu).
 - "Sobre": dentro da janela principal no V1 (`Panel`) e em janela própria no V2 (`show`), porque o V2
   não tem janela principal.
 
-## build.py
+## build.py, predanfe.spec e installer.iss — distribuição
 
-Compila os dois `.exe` com PyInstaller (`--onefile --windowed`), embutindo `fbclient/` e `resources/`.
-O mesmo `.ico` vira o ícone do `.exe` e vai junto em `resources/` para as janelas usarem. Copia para
-`dist/` o `LEIA-ME.txt`, além de `LICENSE` e `NOTICE`, que a licença Apache 2.0 pede que acompanhem
-os executáveis.
+O formato da distribuição foi escolhido para reduzir os falsos positivos de antivírus, já que os `.exe`
+não têm assinatura digital:
+
+- **Pasta (`onedir`) em vez de arquivo único (`onefile`).** O `onefile` extrai DLLs para a pasta
+  temporária a cada abertura e roda de lá, o mesmo comportamento de muitos vírus. Com a pasta, nada é
+  extraído e o programa abre mais rápido.
+- **Inicializador do PyInstaller compilado na máquina do build** (veja o README). O inicializador
+  pronto que vem do PyPI é o mesmo usado por vírus feitos em Python, e os antivírus já têm assinatura
+  para ele.
+- **Dados de versão no `.exe`** (empresa, produto, versão), vindos de `version.py`. Executável sem
+  esses dados parece mais suspeito.
+- **Sem UPX** (`upx=False`): executável compactado é outro motivo comum de alerta.
+
+`predanfe.spec` descreve os dois programas e junta os dois numa única pasta `dist/PreDANFE/`, com uma
+`_internal/` compartilhada (Python, bibliotecas, `fbclient/`, `resources/`). O `.spec` é necessário
+porque a linha de comando do PyInstaller não sabe juntar dois `.exe` na mesma pasta. O mesmo `.ico`
+vira o ícone dos `.exe` e vai em `resources/` para as janelas usarem.
+
+`build.py` roda o `.spec`, copia para a pasta o `LEIA-ME.txt`, o manual (o de `dist/`, ou o da raiz do
+repositório) e o `LICENSE` e o `NOTICE`, que a licença Apache 2.0 pede que acompanhem os executáveis.
+Depois gera:
+
+- `dist/PreDANFE-Portatil-<versão>.zip`: a pasta inteira, para usar sem instalar;
+- `dist/PreDANFE-Instalador-<versão>.exe`: compilando `installer.iss` com o Inno Setup, se ele
+  estiver instalado.
+
+`installer.iss` (Inno Setup):
+
+- Instala em `C:\Program Files\PreDANFE`, com atalhos no menu Iniciar e, se o usuário pedir, na Área
+  de Trabalho.
+- Como `APP_DIR` é a pasta do programa, o `config.ini` e a pasta `pdf` ficam dentro de
+  `Program Files`, onde usuários comuns não gravam. O instalador libera a gravação **só** na pasta
+  `pdf` e no `config.ini` (grupo Usuários, `S-1-5-32-545`). A pasta inteira não é liberada, porque aí
+  qualquer usuário poderia trocar os `.exe` que outros usuários abrem.
+- Para o `config.ini` poder ter essa permissão, ele precisa existir: se não existir, o instalador cria
+  um só com `[saida] pasta_pdf = pdf`. Sem a seção `[banco]`, o programa age como se não houvesse
+  configuração e abre a tela de configuração.
+- Se existir `C:\PreDanfe\config.ini` (a pasta que as versões portáteis usavam), ele é copiado para a
+  instalação, desde que ela ainda não tenha um `config.ini`.
+- Desinstalar não apaga o `config.ini` nem os PDFs.
+- `AppId` identifica o programa no Windows para atualizações e desinstalação. Não pode mudar.
+- O arquivo é UTF-8 com BOM, para o Inno Setup ler os acentos.
 
 ## manual/
 

@@ -353,28 +353,38 @@ def page_intro(pdf):
 def page_install(pdf):
     pdf.section(1, "folder", "Instalação", "Faça uma vez em cada computador que emite notas.")
     pdf.steps([
-        "Crie a pasta **C:\\PreDanfe** no computador.",
-        "Copie para ela o **PreDANFE.exe** e/ou o **PreDANFE-Automatico.exe**.",
-        "Abra um dos programas com dois cliques. Na primeira vez aparece a tela de **Configuração** "
-        "(próximo passo).",
-        "Se quiser, crie um atalho na Área de Trabalho: clique com o botão direito no programa → "
-        "**Enviar para** → **Área de trabalho (criar atalho)**.",
+        f"Abra o **PreDANFE-Instalador-{VERSION}.exe** e siga as telas. O Windows pede a senha de administrador.",
+        "Se quiser, marque **Criar um atalho na Área de Trabalho**.",
+        "No fim, abra um dos programas. Eles também ficam no **menu Iniciar**. Na primeira vez aparece a tela "
+        "de **Configuração** (próximo passo).",
     ])
     pdf.callout("O Windows pode pedir confirmação na primeira vez",
                 "Se aparecer \"O Windows protegeu o computador\", clique em **Mais informações** → **Executar assim "
-                "mesmo**. Se o antivírus bloquear, libere a pasta C:\\PreDanfe.")
+                "mesmo**. Se o antivírus bloquear, libere a pasta C:\\Program Files\\PreDANFE.")
+    pdf.subtitle("Sem instalar (versão portátil)")
+    pdf.paragraph(
+        f"Descompacte o **PreDANFE-Portatil-{VERSION}.zip** numa pasta onde o usuário possa gravar, como "
+        "**C:\\PreDanfe**, e abra os programas de lá. Copie sempre a pasta inteira: os programas não funcionam "
+        "sem a pasta **_internal** que vem junto.")
+    pdf.subtitle("Já usava uma versão anterior?")
+    pdf.bullets([
+        "Antes de instalar, feche o automático: botão direito no ícone → **Sair**.",
+        "O instalador traz o **config.ini** de C:\\PreDanfe, então não precisa configurar de novo.",
+        "Abra o automático novo uma vez: ele passa a iniciar com o Windows no lugar do antigo. Depois disso, "
+        "a pasta C:\\PreDanfe pode ser apagada (os PDFs antigos ficam nela).",
+    ])
     pdf.subtitle("Requisitos")
     pdf.bullets([
         "Windows 10 ou 11 (64 bits).",
         "O SysPDV funcionando nesse computador (o Pré-DANFE usa a mesma conexão com o servidor).",
-        "Uma pasta onde o usuário possa gravar, como C:\\PreDanfe. Evite \"Arquivos de Programas\".",
     ])
     pdf.space(2)
     pdf.subtitle("Como a pasta fica depois de usar")
     tree = [
-        ("folder", "C:\\PreDanfe", "", TEXT),
+        ("folder", "C:\\Program Files\\PreDANFE", "", TEXT),
         ("document", "PreDANFE.exe", "programa sob demanda", TEXT),
         ("document", "PreDANFE-Automatico.exe", "programa automático", TEXT),
+        ("folder", "_internal", "arquivos dos programas (não mexa)", TEXT),
         ("sliders", "config.ini", "criado ao salvar a configuração", TEXT),
         ("folder", "pdf", "os pré-DANFEs gerados (PreDANFE_1532.pdf, ...)", TEXT),
     ]
@@ -411,7 +421,7 @@ def page_config(pdf):
         "**Servidor, porta e arquivo do banco** já vêm preenchidos com o que o SysPDV deste computador usa. "
         "Normalmente não é preciso mudar.",
         "**Senha**: digite a senha do banco do SysPDV (**masterkey**).",
-        "**Pasta dos PDFs**: onde os pré-DANFEs serão salvos. O padrão é a pasta **pdf**, dentro de C:\\PreDanfe.",
+        "**Pasta dos PDFs**: onde os pré-DANFEs serão salvos. O padrão é a pasta **pdf**, dentro da pasta do programa.",
         "**Testar conexão**: confere se está tudo certo. Deve aparecer \"Conectou!\" em verde.",
         "**Salvar**: grava a configuração. Pronto, não será pedida de novo.",
     ]
@@ -458,7 +468,7 @@ def page_v2(pdf):
         "alterada, ele gera o PDF na pasta dos pré-DANFEs e mostra um aviso no canto da tela.")
     pdf.subtitle("Como ligar")
     pdf.steps([
-        "Abra o **PreDANFE-Automatico.exe** com dois cliques. Nenhuma janela abre: aparece só o ícone "
+        "Abra o **Pré-DANFE Automático** pelo menu Iniciar. Nenhuma janela abre: aparece só o ícone "
         "perto do relógio.",
         "Na primeira vez, preencha a configuração (Passo 2).",
         "Responda **Sim** em \"Iniciar junto com o Windows\". Assim ele liga sozinho todo dia.",
@@ -562,11 +572,11 @@ def page_faq(pdf):
          "Clique em **Atualizar**. Notas já transmitidas ou canceladas não aparecem na lista."),
         ("O automático não gerou o PDF",
          "Veja se o ícone está ao lado do relógio (ou na setinha ^). Use **Verificar agora** e espere até 20 "
-         "segundos. Se o ícone não estiver lá, abra o PreDANFE-Automatico.exe de novo."),
+         "segundos. Se o ícone não estiver lá, abra o Pré-DANFE Automático de novo pelo menu Iniciar."),
         ("O PDF foi gerado com outro nome, com um horário no final",
          "O PDF anterior estava aberto. Feche o PDF antigo; o novo arquivo é o que tem o horário no nome."),
         ("O Windows ou o antivírus bloqueou o programa",
-         "Clique em **Mais informações** → **Executar assim mesmo**, ou libere a pasta C:\\PreDanfe no antivírus."),
+         "Clique em **Mais informações** → **Executar assim mesmo**, ou libere a pasta C:\\Program Files\\PreDANFE no antivírus."),
         ("Apareceu \"TRIBUTOS APROXIMADOS ESTIMADOS PARA NCM ...\"",
          "O produto nunca saiu numa nota transmitida, então o valor aproximado dos tributos dele é uma "
          "estimativa. Depois que a primeira nota com ele for transmitida, o Pré-DANFE passa a usar o "

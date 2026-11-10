@@ -23,8 +23,12 @@ Há dois programas. Use um ou os dois.
    agora, configurações, iniciar com o Windows, sair.
 
 INSTALAÇÃO EM CADA COMPUTADOR
-   1. Copie esta pasta inteira para C:\PreDanfe (ou outra pasta onde o
-      usuário tenha permissão de gravar).
+   1. Abra o PreDANFE-Instalador e siga as telas (pede a senha de
+      administrador do Windows). Os programas ficam em
+      C:\Program Files\PreDANFE e no menu Iniciar.
+      Sem instalar: descompacte o PreDANFE-Portatil.zip numa pasta onde o
+      usuário tenha permissão de gravar (ex.: C:\PreDanfe). Copie sempre a
+      pasta inteira: os programas não funcionam sem a pasta _internal.
    2. Abra um dos programas. Na primeira vez aparece a tela de configuração:
       - Servidor, porta e arquivo do banco já vêm preenchidos com o que o
         SysPDV daquele computador usa. Confira.
@@ -34,6 +38,12 @@ INSTALAÇÃO EM CADA COMPUTADOR
       para os outros que usam o mesmo servidor.
    3. No automático, responda "Sim" para iniciar junto com o Windows
       (dá para mudar depois pelo menu do ícone).
+
+QUEM JÁ USAVA A VERSÃO EM C:\PreDanfe
+   Feche o automático (botão direito no ícone > Sair) e rode o instalador.
+   Ele traz o config.ini de C:\PreDanfe. Abra o automático novo uma vez:
+   ele passa a iniciar com o Windows no lugar do antigo. Depois disso a
+   pasta C:\PreDanfe pode ser apagada (os PDFs antigos ficam nela).
 
 ONDE FICAM OS PDFs
    Na pasta "pdf", ao lado dos programas (dá para mudar em Configurações).
@@ -47,4 +57,5 @@ O QUE O PRÉ-DANFE CALCULA
 
 PROBLEMAS
    Registro de erros: %LOCALAPPDATA%\PreDANFE\ (arquivos .log).
-   Se o antivírus bloquear o programa, libere a pasta C:\PreDanfe.
+   Se o antivírus bloquear o programa, libere a pasta do programa
+   (C:\Program Files\PreDANFE ou a pasta da versão portátil).

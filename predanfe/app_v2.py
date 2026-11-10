@@ -56,6 +56,22 @@ def set_autostart(enabled):
                 pass
 
 
+def refresh_autostart():
+    if not FROZEN:
+        return
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            registered = winreg.QueryValueEx(key, NAME)[0]
+    except OSError:
+        return
+    if registered != startup_command():
+        try:
+            set_autostart(True)
+            log.info("Início com o Windows atualizado para %s", startup_command())
+        except OSError as e:
+            log.warning("Não foi possível atualizar o início com o Windows: %r", e)
+
+
 class Watcher:
     def __init__(self):
         self.stop = threading.Event()
@@ -168,6 +184,8 @@ def main():
         messagebox.showinfo("Pré-DANFE Automático",
                             "O Pré-DANFE Automático já está em execução (ícone perto do relógio).")
         return
+
+    refresh_autostart()
 
     try:
         read_config()

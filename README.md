@@ -17,12 +17,15 @@ O programa só **lê** o banco Firebird do SysPDV — nunca grava nada nele.
 
 Baixe a versão mais recente em **[Releases](https://github.com/Jhowseh/pre-danfe/releases/latest)**:
 
-- `PreDANFE.exe` e/ou `PreDANFE-Automatico.exe` — os programas prontos (não precisa instalar Python);
-- `Manual-PreDANFE.pdf` — manual completo, com imagens;
-- `LEIA-ME.txt` — instruções rápidas.
+- `PreDANFE-Instalador-<versão>.exe` — instala os dois programas em `C:\Program Files\PreDANFE`, com
+  atalhos no menu Iniciar (não precisa instalar Python);
+- `PreDANFE-Portatil-<versão>.zip` — os mesmos programas, para usar sem instalar: descompacte a pasta
+  inteira onde o usuário possa gravar (ex.: `C:\PreDanfe`);
+- `Manual-PreDANFE.pdf` — manual completo, com imagens.
 
-Coloque os arquivos numa mesma pasta (ex.: `C:\PreDanfe`) e abra um dos programas.
-Na primeira vez ele pede os dados do banco do SysPDV e cria o `config.ini` sozinho.
+Abra um dos programas. Na primeira vez ele pede os dados do banco do SysPDV e grava o `config.ini`.
+Quem usava a versão antiga em `C:\PreDanfe` pode instalar por cima: o instalador traz o `config.ini`
+de lá (feche o automático antes).
 
 ## Programas
 
@@ -61,10 +64,12 @@ PreDanfe/
     ├── config_window.py, about_window.py, tray_menu.py, app_utils.py
     ├── validate.py         conferência contra as notas autorizadas
     ├── diagnostics.py      mostra os campos crus de uma nota
-    ├── build.py            compila os .exe e monta a pasta dist/
+    ├── build.py            compila os .exe e gera o .zip portátil e o instalador
+    ├── predanfe.spec       receita do PyInstaller (os dois .exe numa pasta só)
+    ├── installer.iss       script do instalador (Inno Setup)
     ├── version.py          versão e créditos
     ├── config.example.ini  modelo do config.ini
-    ├── fbclient/           cliente Firebird 5.0 64 bits (vai embutido nos .exe)
+    ├── fbclient/           cliente Firebird 5.0 64 bits (vai junto com os programas)
     ├── resources/          ícone e logos
     └── manual/             gerador do manual em PDF (com dados fictícios)
 ```
@@ -112,19 +117,57 @@ Os PDFs ficam em `predanfe/pdf` (configurável em `[saida] pasta_pdf`).
 
 ## Compilar os .exe
 
-```bash
-python predanfe/build.py
+### Preparar a máquina do build (uma vez)
+
+Os `.exe` não têm assinatura digital, então o build foi montado para reduzir os alarmes falsos de
+antivírus (detalhes em [`docs/arquitetura.md`](docs/arquitetura.md#buildpy-predanfespec-e-installeriss--distribuição)).
+Para isso a máquina precisa de:
+
+1. **Visual Studio Build Tools 2022** com a carga "Desenvolvimento para desktop com C++", para
+   compilar o inicializador do PyInstaller:
+   ```bat
+   winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+   ```
+2. **Um ambiente Python do projeto** (`.venv`, fora do Git) com as dependências e o **PyInstaller
+   com o inicializador compilado na máquina**, no lugar do que vem pronto do PyPI (o pronto é o mesmo
+   que vírus feitos em Python usam). Num terminal comum, na raiz do projeto:
+   ```bat
+   python -m venv .venv
+   .venv\Scripts\python -m pip install -r requirements.txt
+   set PYINSTALLER_COMPILE_BOOTLOADER=1
+   .venv\Scripts\python -m pip install --force-reinstall --no-deps --no-binary pyinstaller pyinstaller
+   ```
+   A saída do último comando deve mostrar "Compiling ...". Repita esse comando sempre que atualizar
+   o PyInstaller: atualizar pelo `requirements.txt` traz de volta o inicializador pronto.
+3. **[Inno Setup](https://jrsoftware.org/isinfo.php)** 6.3 ou mais novo, para gerar o instalador
+   (`winget install --id JRSoftware.InnoSetup`). Sem ele, o build gera só o `.zip` portátil.
+
+### Gerar
+
+```bat
+.venv\Scripts\python predanfe/build.py
 ```
 
-Gera `dist/PreDANFE.exe`, `dist/PreDANFE-Automatico.exe` e copia o `LEIA-ME.txt`,
-o `LICENSE.txt` e o `NOTICE.txt`.
+Gera em `dist/`:
+
+- `PreDANFE/` — a pasta do programa: `PreDANFE.exe`, `PreDANFE-Automatico.exe`, `_internal/`
+  (compartilhada pelos dois), `LEIA-ME.txt`, `Manual-PreDANFE.pdf`, `LICENSE.txt` e `NOTICE.txt`;
+- `PreDANFE-Portatil-<versão>.zip` — essa pasta compactada;
+- `PreDANFE-Instalador-<versão>.exe` — o instalador.
+
+Os `.exe` só funcionam junto com a pasta `_internal`. Para testar, abra-os dentro de `dist/PreDANFE/`.
+
 Para refazer o manual: `python predanfe/manual/screenshots.py` (só quando as telas mudarem) e depois
-`python predanfe/manual/build_manual.py` (grava `dist/Manual-PreDANFE.pdf`).
+`python predanfe/manual/build_manual.py` (grava `dist/Manual-PreDANFE.pdf`). Gere o manual antes do
+build, para a versão nova ir junto com os programas.
 
 A pasta `dist/` não vai para o Git (pode ter `config.ini` com senha e PDFs de clientes).
 Para publicar uma versão, crie uma release em GitHub → Releases com a tag `v<versão>`
-(a de `predanfe/version.py`) e anexe só `PreDANFE.exe`, `PreDANFE-Automatico.exe`,
-`Manual-PreDANFE.pdf`, `LEIA-ME.txt`, `LICENSE.txt` e `NOTICE.txt` — **nunca o `config.ini` nem a pasta `pdf`**.
+(a de `predanfe/version.py`) e anexe só `PreDANFE-Instalador-<versão>.exe`,
+`PreDANFE-Portatil-<versão>.zip` e `Manual-PreDANFE.pdf` — **nunca o `config.ini` nem a pasta `pdf`**.
+Antes de publicar, envie o instalador ao [VirusTotal](https://www.virustotal.com). Se algum antivírus
+acusar, mande o arquivo como falso positivo para o fabricante (a Microsoft recebe pelo
+[portal de envio](https://www.microsoft.com/wdsi/filesubmission)).
 
 ## Conferência
 
